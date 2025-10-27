@@ -178,13 +178,14 @@ async function sendPayload(includeGPS) {
   }
 
   // 👉 Lấy tên nhân viên (ví dụ từ localStorage hoặc query string)
-  //const ten_nv = localStorage.getItem('ten_nv') || (q.get('ten_nv') || '').trim() || 'Không rõ';
+  const { ma_nv: _ma_nv, ten_nv: _ten_nv } = getNV();
 
   const payload = {
     action: 'giaohangthanhcong',
     ma_kh,
     ma_hd,
-    ten_nv,
+    ma_nv: _ma_nv,          // luôn có (có thể là chuỗi rỗng nếu thiếu)
+    ten_nv: _ten_nv
     image_mime: lastImageMime,
     image_b64: lastImageDataUrl.split(',')[1]
   };
