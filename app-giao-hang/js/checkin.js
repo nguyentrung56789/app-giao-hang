@@ -2,6 +2,23 @@
 const WEBHOOK_URL = "https://dhsybbqoe.datadex.vn/webhook/hoadon";
 const TARGET_W = 900, TARGET_H = 1600;
 
+// Ưu tiên dùng biến bạn đã có sẵn trong app (nếu có):
+function getNV() {
+  // Nếu app của bạn đã có biến toàn cục ma_nv/ten_nv thì dùng trực tiếp
+  const _ma = (typeof ma_nv !== 'undefined' && ma_nv) ? ma_nv : null;
+  const _ten = (typeof ten_nv !== 'undefined' && ten_nv) ? ten_nv : null;
+
+  // Fallback: URL -> localStorage
+  const ma = _ma || (q.get('ma_nv') || localStorage.getItem('ma_nv') || '').trim();
+  const ten = _ten || (q.get('ten_nv') || localStorage.getItem('ten_nv') || '').trim();
+
+  return {
+    ma_nv: ma || '',
+    ten_nv: ten || (ma || ''), // nếu thiếu tên, dùng luôn mã đăng nhập
+  };
+}
+
+
 /* ========= LẤY THAM SỐ ========= */
 const q = new URLSearchParams(location.search);
 const ma_kh = (q.get('ma_kh') || '').trim();
