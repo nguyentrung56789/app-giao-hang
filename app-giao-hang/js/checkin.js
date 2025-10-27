@@ -4,19 +4,17 @@ const TARGET_W = 900, TARGET_H = 1600;
 
 // Ưu tiên dùng biến bạn đã có sẵn trong app (nếu có):
 function getNV() {
-  // Nếu app của bạn đã có biến toàn cục ma_nv/ten_nv thì dùng trực tiếp
+  // Ưu tiên biến toàn cục bạn đã có sẵn
   const _ma = (typeof ma_nv !== 'undefined' && ma_nv) ? ma_nv : null;
   const _ten = (typeof ten_nv !== 'undefined' && ten_nv) ? ten_nv : null;
 
-  // Fallback: URL -> localStorage
+  // Fallback: lấy từ URL hoặc localStorage (nếu có)
   const ma = _ma || (q.get('ma_nv') || localStorage.getItem('ma_nv') || '').trim();
   const ten = _ten || (q.get('ten_nv') || localStorage.getItem('ten_nv') || '').trim();
 
-  return {
-    ma_nv: ma || '',
-    ten_nv: ten || (ma || ''), // nếu thiếu tên, dùng luôn mã đăng nhập
-  };
+  return { ma_nv: ma || '', ten_nv: ten || '' }; // ❌ bỏ fallback gán ten_nv = ma_nv
 }
+
 
 
 /* ========= LẤY THAM SỐ ========= */
@@ -175,18 +173,21 @@ function postForm(url,f){
 }
 
 /* ========= GỬI PAYLOAD ========= */
-let lastImageDataUrl=null,lastImageMime='image/jpeg';
-async function sendPayload(includeGPS){
-  if(!lastImageDataUrl){toast('Chưa có ảnh để gửi','err');return;}
+let lastImageDataUrl = null, lastImageMime = 'image/jpeg';
 
-  const { ma_nv: _ma_nv, ten_nv: _ten_nv } = getNV();
+async function sendPayload(includeGPS) {
+  if (!lastImageDataUrl) {
+    toast('Chưa có ảnh để gửi', 'err');
+    return;
+  }
 
+  // ✅ Dùng trực tiếp ma_nv, ten_nv toàn cục (đã có sẵn ở toàn app)
   const payload = {
     action: 'giaohangthanhcong',
     ma_kh,
     ma_hd,
-    ma_nv: _ma_nv,          // 👈 thêm
-    ten_nv: _ten_nv,        // 👈 thêm
+    ma_nv,
+    ten_nv,
     image_mime: lastImageMime,
     image_b64: lastImageDataUrl.split(',')[1]
   };
@@ -194,14 +195,14 @@ async function sendPayload(includeGPS){
   if (includeGPS) {
     const gps = await getGPSOnce();
     if (gps) {
-      payload.gps_json = JSON.stringify(gps); // giữ tương thích
-      payload.lat = gps.lat;                  // tách riêng
+      payload.gps_json = JSON.stringify(gps);
+      payload.lat = gps.lat;
       payload.lng = gps.lng;
       payload.acc = gps.acc;
       payload.latlng = `${gps.lat},${gps.lng}`;
-      toast('Đã đính kèm vị trí','ok');
+      toast('Đã đính kèm vị trí', 'ok');
     } else {
-      toast('Không lấy được vị trí — vẫn gửi ảnh','info',3000);
+      toast('Không lấy được vị trí — vẫn gửi ảnh', 'info', 3000);
     }
   }
 
@@ -209,6 +210,7 @@ async function sendPayload(includeGPS){
   closeSheet();
   if (navigator.vibrate) navigator.vibrate(30);
 }
+
 
 
 
