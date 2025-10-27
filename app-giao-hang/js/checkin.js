@@ -2,25 +2,21 @@
 const WEBHOOK_URL = "https://dhsybbqoe.datadex.vn/webhook/hoadon";
 const TARGET_W = 900, TARGET_H = 1600;
 
-// Ưu tiên dùng biến bạn đã có sẵn trong app (nếu có):
-function getNV() {
-  // Ưu tiên biến toàn cục bạn đã có sẵn
-  const _ma = (typeof ma_nv !== 'undefined' && ma_nv) ? ma_nv : null;
-  const _ten = (typeof ten_nv !== 'undefined' && ten_nv) ? ten_nv : null;
-
-  // Fallback: lấy từ URL hoặc localStorage (nếu có)
-  const ma = _ma || (q.get('ma_nv') || localStorage.getItem('ma_nv') || '').trim();
-  const ten = _ten || (q.get('ten_nv') || localStorage.getItem('ten_nv') || '').trim();
-
-  return { ma_nv: ma || '', ten_nv: ten || '' }; // ❌ bỏ fallback gán ten_nv = ma_nv
-}
-
-
-
 /* ========= LẤY THAM SỐ ========= */
 const q = new URLSearchParams(location.search);
 const ma_kh = (q.get('ma_kh') || '').trim();
 const ma_hd = (q.get('ma_hd') || '').trim();
+
+/* ========= LẤY NHÂN VIÊN ========= */
+// ✅ Đặt sau khi đã khai báo q
+function getNV() {
+  const _ma = (typeof ma_nv !== 'undefined' && ma_nv) ? ma_nv : null;
+  const _ten = (typeof ten_nv !== 'undefined' && ten_nv) ? ten_nv : null;
+  const ma = _ma || (q.get('ma_nv') || localStorage.getItem('ma_nv') || '').trim();
+  const ten = _ten || (q.get('ten_nv') || localStorage.getItem('ten_nv') || '').trim();
+  return { ma_nv: ma || '', ten_nv: ten || '' };
+}
+
 
 /* ========= DOM ========= */
 const video=document.getElementById('video');
