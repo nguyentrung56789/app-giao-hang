@@ -1,0 +1,125 @@
+/* ====================== BẮT ĐẦU: app_dh.css ====================== */
+:root{--pri:#1a73e8;--ok:#0a8f3a;--err:#c62828;--bd:#e5e7eb;--txt:#111827;--muted:#6b7280;--maxw:520px;--barh:68px;--blue:#1d4ed8}
+*{box-sizing:border-box}
+body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0;color:#111827;background:#fff}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:10px 10px calc(var(--barh) + 14px)}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid var(--bd);padding:6px 0 8px}
+.row{display:flex;align-items:center;gap:8px}
+.cam-btn,.small-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--bd);background:#f8fafc;padding:6px 10px;border-radius:10px;cursor:pointer;font-weight:600}
+.install-btn{display:none}
+.user{position:relative}
+.user-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--bd);background:#fff;padding:6px 12px;border-radius:10px;cursor:pointer;font-weight:600}
+.caret{border:solid #666;border-width:0 2px 2px 0;display:inline-block;padding:3px;transform:rotate(45deg);margin-top:-2px}
+.menu{position:absolute;right:0;top:40px;background:#fff;border:1px solid var(--bd);border-radius:10px;box-shadow:0 6px 16px rgba(0,0,0,.08);display:none;min-width:160px;overflow:hidden;z-index:10}
+.menu button{display:block;width:100%;text-align:left;padding:10px 12px;background:#fff;border:0;cursor:pointer}
+.menu button:hover{background:#f3f4f6}
+
+.grid{display:grid;grid-template-columns:1fr;gap:8px}
+.card{border:1px solid var(--bd);border-radius:12px;padding:10px;background:#fff}
+label{font-weight:600;margin:6px 0 4px;display:block}
+input{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:10px}
+
+.info-bar{margin:8px 0;border:1px solid var(--bd);border-radius:10px;padding:8px 10px;font-size:14px;color:#334155;background:#f8fafc}
+.info-ok{background:#e8f7ee;border-color:#bfe9d0;color:#0a8f3a}
+.info-err{background:#fef2f2;border-color:#fecaca;color:#b91c1c}
+
+.video-wrap{position:relative}
+video{width:100%;max-height:260px;border-radius:12px;background:#000;object-fit:cover;aspect-ratio:16/9}
+.scan-box{position:absolute;inset:12% 18%;border:2px solid rgba(255,255,255,.75);border-radius:12px;pointer-events:none}
+
+/* 2 nút Mode */
+.seg{display:inline-flex;border:1px solid var(--bd);border-radius:999px;overflow:hidden}
+.seg input{display:none}
+.seg label{padding:8px 14px;cursor:pointer;font-weight:700;font-size:14px}
+.seg label.active,.seg input:checked+label{background:#e8f7ee;color:#0a8f3a}
+
+.btn{width:100%;padding:12px 16px;border:0;border-radius:12px;background:var(--pri);color:#fff;font-weight:700;cursor:pointer}
+.muted{color:#6b7280;font-size:13px;text-align:left;margin-top:4px}
+
+/* ===== Thanh đáy ===== */
+.bottom-bar{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:var(--maxw);height:var(--barh);background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;padding:0 12px;z-index:999}
+.bar-item{flex:1;display:flex;align-items:center;justify-content:center;font-weight:700;color:#1f2937;gap:8px}
+.bar-item button{all:unset;cursor:pointer;padding:10px 12px;border-radius:10px}
+.fab{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid #c7d2fe;background:#2563eb;color:#fff;font-size:24px;cursor:pointer;box-shadow:0 6px 20px rgba(37,99,235,.25)}
+.bell{position:relative}
+.bell-badge{position:absolute;top:6px;right:6px;min-width:18px;height:18px;border-radius:999px;background:#ef4444;color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:800;padding:0 5px}
+
+/* ===== Bottom sheet ===== */
+.sheet-wrap{position:fixed;left:50%;transform:translateX(-50%);bottom:0;max-width:var(--maxw);width:100%;z-index:1000;display:none}
+.sheet{background:#fff;border:1px solid var(--bd);border-bottom:none;border-radius:16px 16px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,.12);height:80vh;transform:translateY(100%);transition:transform .25s ease}
+.sheet.active{transform:translateY(0)}
+.sheet-header{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--bd);padding:10px 12px;z-index:1;cursor:pointer}
+.grip{width:40px;height:5px;border-radius:999px;background:#cbd5e1;margin:4px auto 10px}
+.sheet-body{height:calc(80vh - 62px);overflow:auto;padding:10px 12px}
+.order{border:1px solid var(--bd);border-radius:12px;padding:10px;margin:8px 0;background:#fff}
+.order .row1{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.order .hd-link{font-weight:800;color:#111827;text-decoration:underline;text-decoration-thickness:2px;word-break:break-word;font-size:16px;max-width:70%}
+.order .badge{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #dbeafe;background:#eff6ff;color:#1d4ed8;font-size:12px}
+.order .row2,.order .row3{color:#475569;margin-top:4px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.money{font-weight:800}
+.tel{color:#2563eb;text-decoration:underline}
+
+/* ===== Bảng chi tiết ===== */
+.table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
+.table th,.table td{padding:10px 8px;border-bottom:1px solid var(--bd);text-align:left}
+.table th:nth-child(1),.table td:nth-child(1){width:auto;white-space:normal;word-break:break-word}
+.table th:nth-child(2),.table td:nth-child(2){width:3ch;text-align:center;white-space:nowrap;overflow:hidden}
+.table th:nth-child(3),.table td:nth-child(3){width:7ch;text-align:right;white-space:nowrap;overflow:hidden}
+.table th:nth-child(4),.table td:nth-child(4){width:8ch;text-align:right;white-space:nowrap;overflow:hidden}
+.total-row td:nth-child(4){width:auto;white-space:nowrap;overflow:visible;font-weight:800}
+
+/* ===== Mini sheet xin/Gửi vị trí ===== */
+#geoPrompt{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--barh)+10px);width:calc(100% - 20px);max-width:var(--maxw);background:#fff;border:1px solid var(--bd);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:12px;z-index:12000;display:none}
+#geoPrompt .title{font-weight:800;margin-bottom:6px}
+#geoPrompt .msg{color:#475569;font-size:14px;margin-bottom:10px}
+#geoPrompt .row{display:flex;gap:8px}
+#geoPrompt button{flex:1;padding:10px 12px;border-radius:10px;border:1px solid var(--bd);background:#f8fafc;font-weight:700;cursor:pointer}
+#geoPrompt .primary{background:#2563eb;color:#fff;border-color:#c7d2fe}
+
+.flash{animation:flash 350ms ease-in-out 2}
+@keyframes flash{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}50%{box-shadow:0 0 0 4px rgba(16,185,129,.35)}}
+
+/* === GEO SHEET === */
+#geoWrap {position: fixed;inset: 0;display: none;pointer-events: none;z-index: 9999;background: rgba(0,0,0,0.25);}
+#geoSheet {position: fixed;left: 0;right: 0;bottom: 0;width: 100%;max-width: 480px;margin: 0 auto;max-height: 85vh;overflow: auto;-webkit-overflow-scrolling: touch;background: #fff;border-top-left-radius: 14px;border-top-right-radius: 14px;box-shadow: 0 -8px 24px rgba(0,0,0,.18);will-change: transform;transform: translateY(100%);transition: transform .22s ease;padding: 12px 12px calc(env(safe-area-inset-bottom, 0) + 12px);}
+#geoHeader {display: flex;align-items: center;gap: 8px;margin: 4px 0 8px;}
+#geoHeader .dragBar,#geoSheet .dragBar {width: 44px;height: 5px;border-radius: 999px;background: #d1d5db;margin: 6px auto 10px;}
+#geoHeader .title {font-weight: 700;font-size: 16px;text-align: center;width: 100%;}
+#geoSheet .btn {height: 40px;border-radius: 10px;}
+#geoSheet .btn.primary {background: #1a73e8;color: #fff;}
+@media (min-width: 768px) { #geoSheet { max-width: 520px; } }
+@media (prefers-reduced-motion: reduce) { #geoSheet { transition: none; } }
+
+/* === Banner trượt giữa màn hình (mobile-first) === */
+#slideNotice{
+  left:50% !important; top:50% !important; transform:translate(-50%,-130%) !important;
+  width:calc(100% - 24px) !important; max-width:var(--maxw) !important;
+  padding:12px 14px !important; border-radius:14px !important;
+  font-size:clamp(14px,3.8vw,16px) !important; line-height:1.35 !important;
+  text-wrap:balance; word-break:break-word; z-index:99999 !important;
+}
+@media (max-width: 360px){ #slideNotice{ font-size:14px !important; padding:10px 12px !important; }}
+
+/* === Notice Panel: overlay + slide-down mượt === */
+#ncWrap{ position:fixed; inset:0; z-index:99998; pointer-events:none; }
+#ncBackdrop{ position:absolute; inset:0; background:rgba(0,0,0,.25); opacity:0; transition:opacity .24s ease; }
+#ncWrap[data-open="1"] #ncBackdrop{ opacity:1; pointer-events:auto; }
+#ncSheet{
+  position:fixed; left:50%; transform:translate(-50%,-120%);
+  top:0; width:calc(100% - 24px); max-width:var(--maxw);
+  height:min(72vh,560px); background:#fff; border-radius:14px;
+  box-shadow:0 18px 44px rgba(0,0,0,.22); transition:transform .28s cubic-bezier(.22,1,.36,1);
+  overflow:auto; -webkit-overflow-scrolling:touch; pointer-events:auto;
+}
+#ncWrap[data-open="1"] #ncSheet{ transform:translate(-50%,12px); }
+
+/* Chip, item & buttons trong panel */
+#ncSheet .chip{display:inline-block;padding:2px 8px;border-radius:999px;font-weight:800;font-size:12px}
+#ncList > div{border:1px solid var(--bd);border-radius:12px;margin-bottom:8px}
+#ncList > div > div:last-child{color:#6b7280;font-size:12px}
+#ncSheet #ncClear, #ncSheet #ncClose{height:36px;padding:6px 12px;border-radius:10px}
+
+/* Đảm bảo các sheet khác không che safe-area */
+.sheet-wrap{ padding-bottom: env(safe-area-inset-bottom, 0); }
+
+/* ====================== KẾT THÚC: app_dh.css ====================== */
