@@ -161,16 +161,38 @@ function postForm(url,f){
 let lastImageDataUrl=null,lastImageMime='image/jpeg';
 async function sendPayload(includeGPS){
   if(!lastImageDataUrl){toast('Chưa có ảnh để gửi','err');return;}
-  const payload={action:'giaohangthanhcong',ma_kh,ma_hd,image_mime:lastImageMime,image_b64:lastImageDataUrl.split(',')[1]};
-  if(includeGPS){
-    const gps=await getGPSOnce();
-    if(gps){payload.gps_json=JSON.stringify(gps);toast('Đã đính kèm vị trí','ok');}
-    else toast('Không lấy được vị trí — vẫn gửi ảnh','info',3000);
+  const payload = {
+    action:'giaohangthanhcong',
+    ma_kh, ma_hd,
+    image_mime:lastImageMime,
+    image_b64:lastImageDataUrl.split(',')[1]
+  };
+
+  if (includeGPS) {
+    const gps = await getGPSOnce();
+    if (gps) {
+      // giữ json cũ để tương thích
+      payload.gps_json = JSON.stringify(gps);
+
+      // tách riêng lat / lng (raw number)
+      payload.lat = gps.lat;
+      payload.lng = gps.lng;
+
+      // tuỳ chọn: muốn kèm độ chính xác & chuỗi lat,lng
+      // payload.acc = gps.acc;
+      // payload.latlng = `${gps.lat},${gps.lng}`;
+
+      toast('Đã đính kèm vị trí','ok');
+    } else {
+      toast('Không lấy được vị trí — vẫn gửi ảnh','info',3000);
+    }
   }
-  postForm(WEBHOOK_URL,payload);
+
+  postForm(WEBHOOK_URL, payload);
   closeSheet();
-  if(navigator.vibrate)navigator.vibrate(30);
+  if (navigator.vibrate) navigator.vibrate(30);
 }
+
 
 /* ========= Events ========= */
 btnStart.onclick=startCam;
