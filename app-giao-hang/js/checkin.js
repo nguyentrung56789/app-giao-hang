@@ -158,33 +158,40 @@ function postForm(url,f){
 }
 
 /* ========= GỬI PAYLOAD ========= */
-let lastImageDataUrl=null,lastImageMime='image/jpeg';
-async function sendPayload(includeGPS){
-  if(!lastImageDataUrl){toast('Chưa có ảnh để gửi','err');return;}
+let lastImageDataUrl = null, lastImageMime = 'image/jpeg';
+
+async function sendPayload(includeGPS) {
+  if (!lastImageDataUrl) {
+    toast('Chưa có ảnh để gửi', 'err');
+    return;
+  }
+
+  // 👉 Lấy tên nhân viên (ví dụ từ localStorage hoặc query string)
+  const ten_nv = localStorage.getItem('ten_nv') || (q.get('ten_nv') || '').trim() || 'Không rõ';
+
   const payload = {
-    action:'giaohangthanhcong',
-    ma_kh, ma_hd,
-    image_mime:lastImageMime,
-    image_b64:lastImageDataUrl.split(',')[1]
+    action: 'giaohangthanhcong',
+    ma_kh,
+    ma_hd,
+    ten_nv, // 💡 thêm trường tên nhân viên
+    image_mime: lastImageMime,
+    image_b64: lastImageDataUrl.split(',')[1]
   };
 
   if (includeGPS) {
     const gps = await getGPSOnce();
     if (gps) {
-      // giữ json cũ để tương thích
+      // giữ gps_json để tương thích
       payload.gps_json = JSON.stringify(gps);
-
-      // tách riêng lat / lng (raw number)
+      // tách riêng lat / lng
       payload.lat = gps.lat;
       payload.lng = gps.lng;
-
-      // tuỳ chọn: muốn kèm độ chính xác & chuỗi lat,lng
-      // payload.acc = gps.acc;
-      // payload.latlng = `${gps.lat},${gps.lng}`;
-
-      toast('Đã đính kèm vị trí','ok');
+      // tuỳ chọn thêm
+      payload.acc = gps.acc;
+      payload.latlng = `${gps.lat},${gps.lng}`;
+      toast('Đã đính kèm vị trí', 'ok');
     } else {
-      toast('Không lấy được vị trí — vẫn gửi ảnh','info',3000);
+      toast('Không lấy được vị trí — vẫn gửi ảnh', 'info', 3000);
     }
   }
 
@@ -192,6 +199,7 @@ async function sendPayload(includeGPS){
   closeSheet();
   if (navigator.vibrate) navigator.vibrate(30);
 }
+
 
 
 /* ========= Events ========= */
