@@ -8,14 +8,12 @@ const ma_kh = (q.get('ma_kh') || '').trim();
 const ma_hd = (q.get('ma_hd') || '').trim();
 
 /* ========= LẤY NHÂN VIÊN ========= */
-// ✅ Đặt sau khi đã khai báo q
-function getNV() {
-  const _ma = (typeof ma_nv !== 'undefined' && ma_nv) ? ma_nv : null;
-  const _ten = (typeof ten_nv !== 'undefined' && ten_nv) ? ten_nv : null;
-  const ma = _ma || (q.get('ma_nv') || localStorage.getItem('ma_nv') || '').trim();
-  const ten = _ten || (q.get('ten_nv') || localStorage.getItem('ten_nv') || '').trim();
-  return { ma_nv: ma || '', ten_nv: ten || '' };
-}
+// Lấy ma_nv, ten_nv từ thông tin đăng nhập đã lưu
+const { ma_nv = '', ten_nv = '' } = (() => {
+  try { return JSON.parse(localStorage.getItem('nv') || '{}'); }
+  catch { return {}; }
+})();
+
 
 
 /* ========= DOM ========= */
@@ -177,18 +175,16 @@ async function sendPayload(includeGPS) {
     return;
   }
 
-  // 👉 Lấy tên nhân viên (ví dụ từ localStorage hoặc query string)
-  const { ma_nv: _ma_nv, ten_nv: _ten_nv } = getNV();
 
   const payload = {
-    action: 'giaohangthanhcong',
-    ma_kh,
-    ma_hd,
-    ma_nv: _ma_nv,          // luôn có (có thể là chuỗi rỗng nếu thiếu)
-    ten_nv: _ten_nv
-    image_mime: lastImageMime,
-    image_b64: lastImageDataUrl.split(',')[1]
-  };
+  action: 'giaohangthanhcong',
+  ma_kh,
+  ma_hd,
+  ma_nv,
+  ten_nv,
+  image_mime: lastImageMime,
+  image_b64: lastImageDataUrl.split(',')[1]
+};
 
   if (includeGPS) {
     const gps = await getGPSOnce();
