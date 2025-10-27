@@ -177,12 +177,13 @@ async function sendPayload(includeGPS) {
     return;
   }
 
-  // ✅ Dùng trực tiếp ma_nv, ten_nv toàn cục (đã có sẵn ở toàn app)
+  // 👉 Lấy tên nhân viên (ví dụ từ localStorage hoặc query string)
+  //const ten_nv = localStorage.getItem('ten_nv') || (q.get('ten_nv') || '').trim() || 'Không rõ';
+
   const payload = {
     action: 'giaohangthanhcong',
     ma_kh,
     ma_hd,
-    ma_nv,
     ten_nv,
     image_mime: lastImageMime,
     image_b64: lastImageDataUrl.split(',')[1]
@@ -191,9 +192,12 @@ async function sendPayload(includeGPS) {
   if (includeGPS) {
     const gps = await getGPSOnce();
     if (gps) {
+      // giữ gps_json để tương thích
       payload.gps_json = JSON.stringify(gps);
+      // tách riêng lat / lng
       payload.lat = gps.lat;
       payload.lng = gps.lng;
+      // tuỳ chọn thêm
       payload.acc = gps.acc;
       payload.latlng = `${gps.lat},${gps.lng}`;
       toast('Đã đính kèm vị trí', 'ok');
@@ -206,7 +210,6 @@ async function sendPayload(includeGPS) {
   closeSheet();
   if (navigator.vibrate) navigator.vibrate(30);
 }
-
 
 
 
