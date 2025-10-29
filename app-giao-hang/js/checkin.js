@@ -1,232 +1,225 @@
-/* ========= CẤU HÌNH ========= */
-const WEBHOOK_URL = "https://dhsybbqoe.datadex.vn/webhook/hoadon";
-const TARGET_W = 900, TARGET_H = 1600;
+// ========================= checkin.js (FINAL) =========================
+// - Fix "zoom to": object-fit: contain (CSS) + reset camera zoom=1.0 nếu có
+// - Ưu tiên camera sau, aspectRatio theo màn hình, width/height ideal
+// - Chụp ảnh đúng tỉ lệ video, scale theo devicePixelRatio để nét
+// - Hỏi gửi kèm GPS (tùy chọn), upload ảnh qua endpoint cấu hình
+// - Âm thanh chụp: mở khóa audio sau tương tác đầu tiên
+// - Sau khi gửi thành công: thông báo & quay lại trang trước (hoặc postMessage)
 
-/* ========= LẤY THAM SỐ ========= */
-const q = new URLSearchParams(location.search);
-const ma_kh = (q.get('ma_kh') || '').trim();
-const ma_hd = (q.get('ma_hd') || '').trim();
+(function(){
+  const $ = s => document.querySelector(s);
 
-/* ========= LẤY NHÂN VIÊN ========= */
-// Lấy ma_nv, ten_nv từ thông tin đăng nhập đã lưu
-const { ma_nv = '', ten_nv = '' } = (() => {
-  try { return JSON.parse(localStorage.getItem('nv') || '{}'); }
-  catch { return {}; }
-})();
+  const video = $('#video');
+  const canvas = $('#canvas');
+  const snapSound = $('#snapSound');
 
+  const btnStart = $('#btnStart');
+  const btnShot  = $('#btnShot');
+  const btnSound = $('#btnSound');
 
+  const sheet = $('#sheet');
+  const toast = $('#toast');
 
-/* ========= DOM ========= */
-const video=document.getElementById('video');
-const canvas=document.getElementById('canvas');
-const btnStart=document.getElementById('btnStart');
-const btnShot=document.getElementById('btnShot');
-const btnSound=document.getElementById('btnSound');
-const toastEl=document.getElementById('toast');
-const snapAudio=document.getElementById('snapSound');
-const sheet=document.getElementById('sheet');
-const btnSendWithGPS=document.getElementById('btnSendWithGPS');
-const btnSendNoGPS=document.getElementById('btnSendNoGPS');
-let stream=null;
+  const btnSendWithGPS = $('#btnSendWithGPS');
+  const btnSendNoGPS   = $('#btnSendNoGPS');
 
-/* ========= Toast ========= */
-function toast(t,type='info',ms=2400){
-  toastEl.textContent=t;
-  toastEl.style.opacity='1';
-  toastEl.style.transform='translate(-50%,10px)';
-  clearTimeout(toast._t);
-  toast._t=setTimeout(()=>{
-    toastEl.style.opacity='0';
-    toastEl.style.transform='translate(-50%,-120%)';
-  },ms);
-}
+  const infoTag = $('#infoTag');
 
-/* ========= Bottom Sheet ========= */
-function openSheet(){ sheet.classList.add('on'); }
-function closeSheet(){ sheet.classList.remove('on'); }
+  let stream = null;
+  let soundOn = true;
+  let audioUnlocked = false;
 
-/* ========= Âm thanh ========= */
-let audioCtx = null, compressor = null;
-const SHUTTER_GAIN = 0.9;
-let soundEnabled = (localStorage.getItem('checkin_sound') ?? '1') === '1';
-
-function renderSoundBtn(){
-  if(soundEnabled){
-    btnSound.classList.add('btn-on'); btnSound.textContent='🔊'; btnSound.title='Đang bật tiếng (bấm để tắt)';
-  }else{
-    btnSound.classList.remove('btn-on'); btnSound.textContent='🔇'; btnSound.title='Đang tắt tiếng (bấm để bật)';
-  }
-}
-renderSoundBtn();
-
-btnSound.onclick=()=>{
-  soundEnabled=!soundEnabled;
-  localStorage.setItem('checkin_sound', soundEnabled?'1':'0');
-  renderSoundBtn();
-  toast(soundEnabled?'Đã bật tiếng chụp':'Đã tắt tiếng chụp');
-};
-
-function ensureAudioCtx(){
-  if(!audioCtx){
-    const AC = window.AudioContext || window.webkitAudioContext;
-    audioCtx = new AC();
-    compressor = audioCtx.createDynamicsCompressor();
-    compressor.threshold.setValueAtTime(-24, audioCtx.currentTime);
-    compressor.knee.setValueAtTime(30, audioCtx.currentTime);
-    compressor.ratio.setValueAtTime(12, audioCtx.currentTime);
-    compressor.attack.setValueAtTime(0.002, audioCtx.currentTime);
-    compressor.release.setValueAtTime(0.1, audioCtx.currentTime);
-    compressor.connect(audioCtx.destination);
-  }
-  if(audioCtx.state==='suspended') return audioCtx.resume();
-  return Promise.resolve();
-}
-
-function noiseBurst(ctx,t0,dur=0.03){
-  const len=Math.floor(ctx.sampleRate*dur);
-  const buf=ctx.createBuffer(1,len,ctx.sampleRate);
-  const data=buf.getChannelData(0);
-  for(let i=0;i<len;i++)data[i]=(Math.random()*2-1)*0.6;
-  const src=ctx.createBufferSource();src.buffer=buf;
-  const g=ctx.createGain();
-  g.gain.setValueAtTime(0,t0);
-  g.gain.linearRampToValueAtTime(SHUTTER_GAIN,t0+0.005);
-  g.gain.exponentialRampToValueAtTime(0.0008,t0+dur);
-  const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.setValueAtTime(4500,t0);
-  src.connect(lp);lp.connect(g);g.connect(compressor);
-  src.start(t0);src.stop(t0+dur+0.01);
-}
-
-async function playShutter(){
-  if(!soundEnabled)return;
-  try{await ensureAudioCtx();}catch{}
-  const ctx=audioCtx,now=ctx.currentTime;
-  noiseBurst(ctx,now,0.035);
-  const osc1=ctx.createOscillator(),g1=ctx.createGain();
-  osc1.type='square';osc1.frequency.setValueAtTime(1400,now);
-  g1.gain.setValueAtTime(0,now);
-  g1.gain.linearRampToValueAtTime(SHUTTER_GAIN,now+0.01);
-  g1.gain.exponentialRampToValueAtTime(0.001,now+0.09);
-  osc1.connect(g1);g1.connect(compressor);
-  osc1.start(now);osc1.stop(now+0.1);
-  const t2=now+0.06;
-  const osc2=ctx.createOscillator(),g2=ctx.createGain();
-  osc2.type='square';osc2.frequency.setValueAtTime(950,t2);
-  g2.gain.setValueAtTime(0,t2);
-  g2.gain.linearRampToValueAtTime(SHUTTER_GAIN*0.7,t2+0.012);
-  g2.gain.exponentialRampToValueAtTime(0.001,t2+0.08);
-  osc2.connect(g2);g2.connect(compressor);
-  osc2.start(t2);osc2.stop(t2+0.09);
-  if(navigator.vibrate)navigator.vibrate(30);
-  try{snapAudio.currentTime=0;await snapAudio.play();}catch{}
-}
-
-/* ========= Camera ========= */
-async function startCam(){
-  try{
-    if(stream)stream.getTracks().forEach(t=>t.stop());
-    const base={video:{width:{ideal:1080},height:{ideal:1920},facingMode:{ideal:'environment'}},audio:false};
-    stream=await navigator.mediaDevices.getUserMedia(base);
-    video.srcObject=stream;
-    await new Promise(r=>video.onloadedmetadata=r);
-    btnShot.disabled=false;
-    toast('Đã bật camera','ok');
-  }catch(e){
-    btnShot.disabled=true;
-    toast('Lỗi camera: '+(e.message||e),'err',4200);
-  }
-}
-function stopCam(){
-  if(stream){try{stream.getTracks().forEach(t=>t.stop());}catch{}stream=null;video.srcObject=null;}
-}
-function drawToCanvas(){
-  const fw=video.videoWidth,fh=video.videoHeight;if(!fw||!fh)return;
-  const ar=fw/fh,desired=TARGET_W/TARGET_H;let sx=0,sy=0,sw=fw,sh=fh;
-  if(ar>desired){sw=fh*desired;sx=(fw-sw)/2;}else{sh=fw/desired;sy=(fh-sh)/2;}
-  canvas.width=TARGET_W;canvas.height=TARGET_H;
-  canvas.getContext('2d').drawImage(video,sx,sy,sw,sh,0,0,TARGET_W,TARGET_H);
-}
-
-/* ========= GPS ========= */
-function getGPSOnce(){return new Promise(r=>{
-  if(!('geolocation'in navigator))return r(null);
-  navigator.geolocation.getCurrentPosition(
-    p=>r({lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy}),
-    _=>r(null),
-    {enableHighAccuracy:true,timeout:10000,maximumAge:0}
-  );
-});}
-
-/* ========= POST FORM ========= */
-function postForm(url,f){
-  let form=document.getElementById('hiddenForm');
-  if(!form){form=document.createElement('form');form.id='hiddenForm';form.method='POST';form.target='sink';form.style.display='none';document.body.appendChild(form);}
-  form.action=url;form.innerHTML='';
-  for(const[k,v]of Object.entries(f)){const i=document.createElement('input');i.type='hidden';i.name=k;i.value=(v==null?'':v);form.appendChild(i);}
-  form.submit();
-}
-
-/* ========= GỬI PAYLOAD ========= */
-let lastImageDataUrl = null, lastImageMime = 'image/jpeg';
-
-async function sendPayload(includeGPS) {
-  if (!lastImageDataUrl) {
-    toast('Chưa có ảnh để gửi', 'err');
-    return;
+  // ===== Cấu hình upload linh hoạt =====
+  // Ưu tiên window.CHECKIN_CONFIG.uploadUrl, sau đó /api/upload_checkin
+  function getUploadUrl(){
+    return (window.CHECKIN_CONFIG && window.CHECKIN_CONFIG.uploadUrl) || '/api/upload_checkin';
   }
 
+  // Đọc query: ?ma_kh=...&ma_hd=... (đính kèm khi upload)
+  function getQueryParams(){
+    const q = new URLSearchParams(location.search);
+    return {
+      ma_kh: q.get('ma_kh') || '',
+      ma_hd: q.get('ma_hd') || '',
+    };
+  }
 
-  const payload = {
-  action: 'giaohangthanhcong',
-  ma_kh,
-  ma_hd,
-  ma_nv,
-  ten_nv,
-  image_mime: lastImageMime,
-  image_b64: lastImageDataUrl.split(',')[1]
-};
+  // Toast nhỏ
+  let toastTimer = null;
+  function showToast(msg, ms=2200){
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>toast.classList.remove('show'), ms);
+  }
 
-  if (includeGPS) {
-    const gps = await getGPSOnce();
-    if (gps) {
-      // giữ gps_json để tương thích
-      payload.gps_json = JSON.stringify(gps);
-      // tách riêng lat / lng
-      payload.lat = gps.lat;
-      payload.lng = gps.lng;
-      // tuỳ chọn thêm
-      payload.acc = gps.acc;
-      payload.latlng = `${gps.lat},${gps.lng}`;
-      toast('Đã đính kèm vị trí', 'ok');
+  // Mở khóa audio (iOS/Android yêu cầu thao tác người dùng)
+  function unlockAudio(){
+    if (audioUnlocked) return;
+    // play/pause nhanh để browser cho phép phát âm
+    const p = snapSound.play();
+    if (p && typeof p.then === 'function'){
+      p.then(()=>{ snapSound.pause(); snapSound.currentTime = 0; audioUnlocked = true; })
+       .catch(()=>{ /* ignore */ });
     } else {
-      toast('Không lấy được vị trí — vẫn gửi ảnh', 'info', 3000);
+      audioUnlocked = true;
     }
   }
 
-  postForm(WEBHOOK_URL, payload);
-  closeSheet();
-  if (navigator.vibrate) navigator.vibrate(30);
-}
+  // Chọn constraint hợp với màn hình để giảm crop
+  function videoConstraints(){
+    // Ưu tiên 16:9, hoặc theo tỉ lệ màn hiện tại
+    const ratio = (screen.width > screen.height) ? 16/9 : 9/16;
+    return {
+      facingMode: { ideal: 'environment' },
+      aspectRatio: { ideal: ratio },
+      width:  { ideal: 1280 },
+      height: { ideal: 720 },
+      // Tùy máy có thể hỗ trợ thêm:
+      // advanced: [{ focusMode: 'continuous' }]
+    };
+  }
 
+  async function startCamera(){
+    try{
+      unlockAudio();
+      stopCamera(); // dọn trước
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: videoConstraints(),
+        audio: false
+      });
+      video.srcObject = stream;
 
+      // Reset zoom về min (thường = 1.0) nếu máy có hỗ trợ
+      const track = stream.getVideoTracks()[0];
+      const caps = track.getCapabilities ? track.getCapabilities() : null;
+      if (caps && 'zoom' in caps){
+        const minZoom = (caps.zoom && typeof caps.zoom.min === 'number') ? caps.zoom.min : 1;
+        await track.applyConstraints({ advanced: [{ zoom: minZoom }] });
+      }
 
-/* ========= Events ========= */
-btnStart.onclick=startCam;
-btnShot.onclick=async()=>{
-  if(!stream){toast('Chưa bật camera','err');return;}
-  await playShutter();
-  drawToCanvas();
-  lastImageMime='image/jpeg';
-  lastImageDataUrl=canvas.toDataURL(lastImageMime,0.85);
-  openSheet();
-};
-btnSendWithGPS.onclick=()=>sendPayload(true);
-btnSendNoGPS.onclick=()=>sendPayload(false);
+      btnShot.disabled = false;
+      showToast('✅ Đã bật camera');
+      // Hiển thị thông tin bối cảnh (ẩn mặc định)
+      // infoTag.style.display = 'block';
+      // infoTag.textContent = `${track.label || 'Camera'} • ${video.videoWidth}x${video.videoHeight}`;
+    }catch(err){
+      console.error(err);
+      showToast('Không thể bật camera: ' + (err && err.message ? err.message : err));
+    }
+  }
 
-(async()=>{
-  try{
-    const camPerm=await navigator.permissions.query({name:'camera'});
-    if(camPerm.state==='granted')await startCam();
-  }catch(e){}
+  function stopCamera(){
+    try{
+      if (video) video.pause?.();
+      if (stream){
+        stream.getTracks().forEach(t=>t.stop());
+        stream = null;
+      }
+    }catch{}
+  }
+
+  // Chụp ảnh vào canvas đúng tỉ lệ, scale theo DPR cho nét
+  function drawFrameToCanvas(){
+    const vw = video.videoWidth  || 1280;
+    const vh = video.videoHeight || 720;
+
+    // Canvas hiển thị vẫn object-fit: contain (CSS), nhưng xuất ảnh theo kích thước thực của video
+    const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+    canvas.width  = vw * dpr;
+    canvas.height = vh * dpr;
+
+    const ctx = canvas.getContext('2d');
+    ctx.save();
+    ctx.scale(dpr, dpr);
+    ctx.drawImage(video, 0, 0, vw, vh);
+    ctx.restore();
+  }
+
+  async function toJpegBlob(quality = 0.9){
+    await new Promise(r => requestAnimationFrame(r));
+    return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+  }
+
+  async function sendPhoto(withGPS){
+    sheet.classList.remove('show');
+    showToast('Đang gửi…');
+
+    let gps = null;
+    if (withGPS && 'geolocation' in navigator){
+      try{
+        const pos = await new Promise((res, rej)=>{
+          navigator.geolocation.getCurrentPosition(res, rej, {
+            enableHighAccuracy: true,
+            timeout: 6000,
+            maximumAge: 0
+          });
+        });
+        gps = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy };
+      }catch(e){
+        showToast('Không lấy được vị trí (tiếp tục gửi ảnh).', 1800);
+      }
+    }
+
+    const blob = await toJpegBlob(0.92);
+    if (!blob){ showToast('Không tạo được ảnh.'); return; }
+
+    const form = new FormData();
+    form.append('file', blob, `checkin_${Date.now()}.jpg`);
+    const qp = getQueryParams();
+    if (qp.ma_kh) form.append('ma_kh', qp.ma_kh);
+    if (qp.ma_hd) form.append('ma_hd', qp.ma_hd);
+    form.append('time', new Date().toISOString());
+    if (gps) form.append('gps', JSON.stringify(gps));
+
+    try{
+      const res = await fetch(getUploadUrl(), {
+        method: 'POST',
+        body: form,
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showToast('✅ Đã gửi thành công!');
+
+      // Báo về trang mẹ (nếu mở dạng overlay) hoặc quay lại
+      try{
+        if (window.parent && window.parent !== window){
+          window.parent.postMessage({ type: 'checkin:done', ma_kh: qp.ma_kh, ma_hd: qp.ma_hd }, '*');
+        }
+      }catch{}
+      setTimeout(()=>{ history.back(); }, 900);
+    }catch(err){
+      console.error(err);
+      showToast('Gửi thất bại: ' + (err && err.message ? err.message : err));
+    }
+  }
+
+  // ====== Sự kiện ======
+  btnStart.addEventListener('click', startCamera);
+
+  btnShot.addEventListener('click', async ()=>{
+    if (!stream){ showToast('Chưa bật camera'); return; }
+    if (soundOn){
+      try{ await snapSound.play(); }catch{}
+    }
+    drawFrameToCanvas();
+    sheet.classList.add('show');
+  });
+
+  btnSound.addEventListener('click', ()=>{
+    soundOn = !soundOn;
+    btnSound.textContent = soundOn ? '🔊' : '🔈';
+  });
+
+  btnSendWithGPS.addEventListener('click', ()=>sendPhoto(true));
+  btnSendNoGPS  .addEventListener('click', ()=>sendPhoto(false));
+
+  // Mở camera ngay nếu người dùng cho phép từ trước
+  document.addEventListener('visibilitychange', ()=>{
+    if (document.visibilityState === 'visible' && !stream){
+      // Không tự auto-bật để tránh khó chịu; nếu muốn auto thì gọi startCamera() ở đây.
+    }
+  });
+
+  // Đảm bảo dọn stream khi rời trang
+  window.addEventListener('beforeunload', stopCamera);
 })();
-addEventListener('visibilitychange',()=>{if(document.hidden)stopCam();});
