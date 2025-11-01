@@ -1,225 +1,312 @@
-// ========================= checkin.js (FINAL) =========================
-// - Fix "zoom to": object-fit: contain (CSS) + reset camera zoom=1.0 nếu có
-// - Ưu tiên camera sau, aspectRatio theo màn hình, width/height ideal
-// - Chụp ảnh đúng tỉ lệ video, scale theo devicePixelRatio để nét
-// - Hỏi gửi kèm GPS (tùy chọn), upload ảnh qua endpoint cấu hình
-// - Âm thanh chụp: mở khóa audio sau tương tác đầu tiên
-// - Sau khi gửi thành công: thông báo & quay lại trang trước (hoặc postMessage)
+// ========================= checkin.js (FINAL • JSON webhook + Big toast + Close on GPS) =========================
+// - Video đúng khung: object-fit: contain (làm bằng CSS); track zoom reset về min nếu máy hỗ trợ
+// - Ưu tiên camera sau; aspectRatio bám theo màn hình để đỡ crop
+// - Chụp frame gốc, scale theo devicePixelRatio -> ảnh nét
+// - Upload theo SCHEMA /webhook/hoadon: { action:"checkin", ma_kh, ma_hd, image_mime, image_b64, (lat,lng,acc)? }
+// - Thông báo to ở giữa màn hình (JS điều khiển trực tiếp, không cần CSS riêng)
+// - Nếu gửi KÈM GPS thành công: đóng trang/app (window.close hoặc history.back)
 
-(function(){
-  const $ = s => document.querySelector(s);
+(function () {
+  const $ = (s) => document.querySelector(s);
 
-  const video = $('#video');
-  const canvas = $('#canvas');
-  const snapSound = $('#snapSound');
+  // ---- DOM
+  const video   = $("#video");
+  const canvas  = $("#canvas");
+  const snapAud = $("#snapSound");
 
-  const btnStart = $('#btnStart');
-  const btnShot  = $('#btnShot');
-  const btnSound = $('#btnSound');
+  const btnStart = $("#btnStart");
+  const btnShot  = $("#btnShot");
+  const btnSound = $("#btnSound");
 
-  const sheet = $('#sheet');
-  const toast = $('#toast');
+  const sheet = $("#sheet");
+  const toast = $("#toast");
 
-  const btnSendWithGPS = $('#btnSendWithGPS');
-  const btnSendNoGPS   = $('#btnSendNoGPS');
+  const btnSendWithGPS = $("#btnSendWithGPS");
+  const btnSendNoGPS   = $("#btnSendNoGPS");
 
-  const infoTag = $('#infoTag');
+  const infoTag = $("#infoTag"); // có thể ẩn/hiện nếu muốn
 
+  // ---- State
   let stream = null;
   let soundOn = true;
   let audioUnlocked = false;
 
-  // ===== Cấu hình upload linh hoạt =====
-  // Ưu tiên window.CHECKIN_CONFIG.uploadUrl, sau đó /api/upload_checkin
-  function getUploadUrl(){
-    return (window.CHECKIN_CONFIG && window.CHECKIN_CONFIG.uploadUrl) || '/api/upload_checkin';
+    // ================= ĐÓNG ỨNG DỤNG HOÀN TOÀN =================
+  function closeApp(){
+    try { window.close(); } catch {}
+    try { if (navigator.app && navigator.app.exitApp) navigator.app.exitApp(); } catch {}
+    try { if (window.matchMedia('(display-mode: standalone)').matches) location.replace('about:blank'); } catch {}
+    try {
+      if (document.referrer) history.back();
+      else location.replace('about:blank');
+    } catch {
+      location.replace('about:blank');
+    }
   }
 
-  // Đọc query: ?ma_kh=...&ma_hd=... (đính kèm khi upload)
-  function getQueryParams(){
+
+  // ================= CẤU HÌNH =================
+  function getUploadUrl() {
+    // Ép dùng đúng webhook JSON của bạn
+    return "https://dhsybbqoe.datadex.vn/webhook/hoadon";
+  }
+  function getQP() {
     const q = new URLSearchParams(location.search);
-    return {
-      ma_kh: q.get('ma_kh') || '',
-      ma_hd: q.get('ma_hd') || '',
-    };
+    return { ma_kh: q.get("ma_kh") || "", ma_hd: q.get("ma_hd") || "" };
   }
 
-  // Toast nhỏ
+  // ================= TOAST TO Ở GIỮA =================
   let toastTimer = null;
-  function showToast(msg, ms=2200){
+  function showToastCenter(msg, kind = "info", ms = 2200) {
+    // Style lớn, đặt giữa màn hình
+    Object.assign(toast.style, {
+      position: "fixed",
+      left: "50%",
+      top: "50%",
+      transform: "translate(-50%,-50%)",
+      zIndex: "9999",
+      maxWidth: "90vw",
+      background: kind === "err" ? "#111" : "#0b1220",
+      color: "#fff",
+      padding: "14px 18px",
+      borderRadius: "14px",
+      fontWeight: "800",
+      fontSize: "18px",
+      textAlign: "center",
+      boxShadow: "0 12px 36px rgba(0,0,0,.45)",
+      border: "1px solid rgba(255,255,255,.15)",
+      opacity: "1",
+      pointerEvents: "none",
+    });
     toast.textContent = msg;
-    toast.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(()=>toast.classList.remove('show'), ms);
+    toastTimer = setTimeout(() => {
+      toast.style.opacity = "0";
+    }, ms);
   }
+  const showToast = (m, t = "info", ms = 2200) => showToastCenter(m, t, ms);
 
-  // Mở khóa audio (iOS/Android yêu cầu thao tác người dùng)
-  function unlockAudio(){
+  // ================= AUDIO (mở khóa & click) =================
+  function unlockAudioOnce() {
     if (audioUnlocked) return;
-    // play/pause nhanh để browser cho phép phát âm
-    const p = snapSound.play();
-    if (p && typeof p.then === 'function'){
-      p.then(()=>{ snapSound.pause(); snapSound.currentTime = 0; audioUnlocked = true; })
-       .catch(()=>{ /* ignore */ });
+    const p = snapAud.play();
+    if (p && typeof p.then === "function") {
+      p.then(() => {
+        snapAud.pause();
+        snapAud.currentTime = 0;
+        audioUnlocked = true;
+      }).catch(() => {});
     } else {
       audioUnlocked = true;
     }
   }
+  ["pointerdown", "touchstart", "click"].forEach((ev) => {
+    document.addEventListener(ev, unlockAudioOnce, { once: true, passive: true });
+  });
 
-  // Chọn constraint hợp với màn hình để giảm crop
-  function videoConstraints(){
-    // Ưu tiên 16:9, hoặc theo tỉ lệ màn hiện tại
-    const ratio = (screen.width > screen.height) ? 16/9 : 9/16;
+  // ================= CAMERA =================
+  function videoConstraints() {
+    // Bám theo tỉ lệ màn hình: dọc -> 9/16, ngang -> 16/9
+    const ratio = screen.width > screen.height ? 16 / 9 : 9 / 16;
     return {
-      facingMode: { ideal: 'environment' },
+      facingMode: { ideal: "environment" },
       aspectRatio: { ideal: ratio },
-      width:  { ideal: 1280 },
+      width: { ideal: 1280 },
       height: { ideal: 720 },
-      // Tùy máy có thể hỗ trợ thêm:
-      // advanced: [{ focusMode: 'continuous' }]
     };
   }
 
-  async function startCamera(){
-    try{
-      unlockAudio();
-      stopCamera(); // dọn trước
+  async function startCamera() {
+    try {
+      unlockAudioOnce();
+      stopCamera();
       stream = await navigator.mediaDevices.getUserMedia({
         video: videoConstraints(),
-        audio: false
+        audio: false,
       });
       video.srcObject = stream;
 
-      // Reset zoom về min (thường = 1.0) nếu máy có hỗ trợ
+      // Reset zoom về min nếu có
       const track = stream.getVideoTracks()[0];
-      const caps = track.getCapabilities ? track.getCapabilities() : null;
-      if (caps && 'zoom' in caps){
-        const minZoom = (caps.zoom && typeof caps.zoom.min === 'number') ? caps.zoom.min : 1;
-        await track.applyConstraints({ advanced: [{ zoom: minZoom }] });
+      const caps = track.getCapabilities?.() || {};
+      if ("zoom" in caps) {
+        const minZoom = typeof caps.zoom.min === "number" ? caps.zoom.min : 1;
+        try {
+          await track.applyConstraints({ advanced: [{ zoom: minZoom }] });
+        } catch {}
       }
 
       btnShot.disabled = false;
-      showToast('✅ Đã bật camera');
-      // Hiển thị thông tin bối cảnh (ẩn mặc định)
-      // infoTag.style.display = 'block';
-      // infoTag.textContent = `${track.label || 'Camera'} • ${video.videoWidth}x${video.videoHeight}`;
-    }catch(err){
+      showToast("✅ Đã bật camera", "ok", 1200);
+
+      // // Nếu muốn xem label camera + kích thước:
+      // infoTag.style.display = "block";
+      // infoTag.textContent = (track.label || "Camera") + " • waiting video size…";
+      // setTimeout(() => {
+      //   infoTag.textContent = (track.label || "Camera") + ` • ${video.videoWidth}x${video.videoHeight}`;
+      // }, 600);
+    } catch (err) {
       console.error(err);
-      showToast('Không thể bật camera: ' + (err && err.message ? err.message : err));
+      btnShot.disabled = true;
+      showToast("Không mở được camera: " + (err?.message || err), "err", 3600);
     }
   }
 
-  function stopCamera(){
-    try{
+  function stopCamera() {
+    try {
       if (video) video.pause?.();
-      if (stream){
-        stream.getTracks().forEach(t=>t.stop());
+      if (stream) {
+        stream.getTracks().forEach((t) => t.stop());
         stream = null;
       }
-    }catch{}
+    } catch {}
   }
 
-  // Chụp ảnh vào canvas đúng tỉ lệ, scale theo DPR cho nét
-  function drawFrameToCanvas(){
-    const vw = video.videoWidth  || 1280;
+  // ================= CAPTURE FRAME =================
+  function drawFrameToCanvas() {
+    const vw = video.videoWidth || 1280;
     const vh = video.videoHeight || 720;
-
-    // Canvas hiển thị vẫn object-fit: contain (CSS), nhưng xuất ảnh theo kích thước thực của video
     const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
-    canvas.width  = vw * dpr;
-    canvas.height = vh * dpr;
 
-    const ctx = canvas.getContext('2d');
+    canvas.width = vw * dpr;
+    canvas.height = vh * dpr;
+    const ctx = canvas.getContext("2d");
     ctx.save();
     ctx.scale(dpr, dpr);
     ctx.drawImage(video, 0, 0, vw, vh);
     ctx.restore();
   }
 
-  async function toJpegBlob(quality = 0.9){
-    await new Promise(r => requestAnimationFrame(r));
-    return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+  // Lấy base64 JPEG từ canvas
+  async function canvasToBase64Jpeg(quality = 0.92) {
+    await new Promise((r) => requestAnimationFrame(r));
+    // Dùng toBlob -> ArrayBuffer -> base64 để tương thích rộng
+    const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", quality));
+    if (!blob) return null;
+    const arr = new Uint8Array(await blob.arrayBuffer());
+    let bin = "";
+    for (let i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]);
+    return btoa(bin);
   }
 
-  async function sendPhoto(withGPS){
-    sheet.classList.remove('show');
-    showToast('Đang gửi…');
+  // ================= GPS (một lần) =================
+  async function getGPSOnce(timeoutMs = 8000) {
+    if (!("geolocation" in navigator)) return null;
+    try {
+      const pos = await new Promise((res, rej) => {
+        navigator.geolocation.getCurrentPosition(res, rej, {
+          enableHighAccuracy: true,
+          timeout: timeoutMs,
+          maximumAge: 0,
+        });
+      });
+      return {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        acc: pos.coords.accuracy,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  // ================= GỬI ẢNH (JSON Webhook) =================
+  async function sendPhoto(withGPS) {
+    // Ẩn sheet chọn phương thức nếu có
+    if (sheet) sheet.classList.remove("show");
+
+    showToast("Đang tạo ảnh…", "info", 1200);
+    drawFrameToCanvas();
+    const image_b64 = await canvasToBase64Jpeg(0.92);
+    if (!image_b64) {
+      showToast("Không tạo được ảnh.", "err", 2400);
+      return;
+    }
 
     let gps = null;
-    if (withGPS && 'geolocation' in navigator){
-      try{
-        const pos = await new Promise((res, rej)=>{
-          navigator.geolocation.getCurrentPosition(res, rej, {
-            enableHighAccuracy: true,
-            timeout: 6000,
-            maximumAge: 0
-          });
-        });
-        gps = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy };
-      }catch(e){
-        showToast('Không lấy được vị trí (tiếp tục gửi ảnh).', 1800);
-      }
-    }
+  if (withGPS && gps) {
+    showToast("✅ Đã gửi & đính kèm vị trí", "ok", 1100);
+    setTimeout(closeApp, 900);
+  }
 
-    const blob = await toJpegBlob(0.92);
-    if (!blob){ showToast('Không tạo được ảnh.'); return; }
 
-    const form = new FormData();
-    form.append('file', blob, `checkin_${Date.now()}.jpg`);
-    const qp = getQueryParams();
-    if (qp.ma_kh) form.append('ma_kh', qp.ma_kh);
-    if (qp.ma_hd) form.append('ma_hd', qp.ma_hd);
-    form.append('time', new Date().toISOString());
-    if (gps) form.append('gps', JSON.stringify(gps));
+    const { ma_kh, ma_hd } = getQP();
+    const payload = {
+      action: "giaohangthanhcong",
+      ma_kh,
+      ma_hd,
+      image_mime: "image/jpeg",
+      image_b64,
+      ...(gps ? { lat: gps.lat, lng: gps.lng, acc: gps.acc } : {}),
+    };
 
-    try{
+    try {
+      showToast("Đang gửi…", "info", 1200);
       const res = await fetch(getUploadUrl(), {
-        method: 'POST',
-        body: form,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      showToast('✅ Đã gửi thành công!');
+      if (!res.ok) {
+        showToast(`Gửi thất bại: HTTP ${res.status}`, "err", 3200);
+        return;
+      }
 
-      // Báo về trang mẹ (nếu mở dạng overlay) hoặc quay lại
-      try{
-        if (window.parent && window.parent !== window){
-          window.parent.postMessage({ type: 'checkin:done', ma_kh: qp.ma_kh, ma_hd: qp.ma_hd }, '*');
+      if (withGPS && gps) {
+        showToast("✅ Đã gửi & đính kèm vị trí", "ok", 1100);
+        setTimeout(closeApp, 900);
+      } else {
+        showToast("✅ Đã gửi ảnh", "ok", 1500);
+      }
+
+
+      // Nếu đang nhúng trong iframe overlay: báo về parent
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: "checkin:done", ma_kh, ma_hd }, "*");
         }
-      }catch{}
-      setTimeout(()=>{ history.back(); }, 900);
-    }catch(err){
+      } catch {}
+    } catch (err) {
       console.error(err);
-      showToast('Gửi thất bại: ' + (err && err.message ? err.message : err));
+      showToast("Lỗi mạng khi gửi", "err", 3000);
     }
   }
 
-  // ====== Sự kiện ======
-  btnStart.addEventListener('click', startCamera);
+  // ================= SỰ KIỆN =================
+  btnStart?.addEventListener("click", startCamera);
 
-  btnShot.addEventListener('click', async ()=>{
-    if (!stream){ showToast('Chưa bật camera'); return; }
-    if (soundOn){
-      try{ await snapSound.play(); }catch{}
+  btnShot?.addEventListener("click", async () => {
+    if (!stream) {
+      showToast("Chưa bật camera", "err", 1800);
+      return;
     }
-    drawFrameToCanvas();
-    sheet.classList.add('show');
+    if (soundOn) {
+      try {
+        await snapAud.play();
+      } catch {}
+    }
+    // Hiện bottom sheet (nếu có) hoặc gửi luôn tùy UI của bạn
+    if (sheet) {
+      sheet.classList.add("show");
+    } else {
+      // nếu không có sheet chọn chế độ, mặc định hỏi kèm GPS
+      const useGPS = confirm("Gửi kèm vị trí?");
+      sendPhoto(useGPS);
+    }
   });
 
-  btnSound.addEventListener('click', ()=>{
+  btnSound?.addEventListener("click", () => {
     soundOn = !soundOn;
-    btnSound.textContent = soundOn ? '🔊' : '🔈';
+    btnSound.textContent = soundOn ? "🔊" : "🔈";
+    showToast(soundOn ? "Đã bật tiếng chụp" : "Đã tắt tiếng chụp", "info", 1200);
   });
 
-  btnSendWithGPS.addEventListener('click', ()=>sendPhoto(true));
-  btnSendNoGPS  .addEventListener('click', ()=>sendPhoto(false));
+  btnSendWithGPS?.addEventListener("click", () => sendPhoto(true));
+  btnSendNoGPS?.addEventListener("click", () => sendPhoto(false));
 
-  // Mở camera ngay nếu người dùng cho phép từ trước
-  document.addEventListener('visibilitychange', ()=>{
-    if (document.visibilityState === 'visible' && !stream){
-      // Không tự auto-bật để tránh khó chịu; nếu muốn auto thì gọi startCamera() ở đây.
-    }
-  });
+  // Dọn camera khi rời trang
+  window.addEventListener("beforeunload", stopCamera);
 
-  // Đảm bảo dọn stream khi rời trang
-  window.addEventListener('beforeunload', stopCamera);
+  // Nếu người dùng đã cấp quyền từ trước, bạn có thể auto-bật tại đây (đang để thủ công để tránh khó chịu)
+  // startCamera();
 })();
