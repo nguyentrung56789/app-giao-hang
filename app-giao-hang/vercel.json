@@ -1,8 +1,0 @@
-{
-  "rewrites": [
-    {
-      "source": "/",
-      "destination": "/app_giao_hang.html"
-    }
-  ]
-}
