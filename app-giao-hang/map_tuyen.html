@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bản đồ khách hàng — CSV</title>
+
+
+<!-- Kiểm tra quyền truy cập bằng token -->
+<script src="./js/auth_token.js"></script>
+<script>checkAccess();</script>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="./css/map_tuyen.css" />
+
+  <!-- Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" defer></script>
+
+  <!-- PHẢI load trước file js app để có window.getConfig -->
+  <script src="./js/internal_key.js" defer></script>
+
+  <!-- App JS -->
+  <script src="./js/map_tuyen.js" defer></script>
+</head>
+<body>
+  <!-- Thanh bar: bấm để đóng khi nhúng trong iframe -->
+  <div id="mapHeader" class="map-header" title="Bấm để đóng">
+    <div class="grabber"></div>
+    <strong>🗺️ Bản đồ tuyến</strong>
+    <label><input id="vnOnly" type="checkbox" checked> Chỉ VN</label>
+    <span id="status" class="muted">Sẵn sàng</span>
+  </div>
+
+  <div id="toolbar">
+    <button id="reload">Tải lại</button>
+    <div class="grow">
+      <input id="q" type="text" placeholder="Tìm: ma: KH0001 KH0002, ten: an lão, sdt: 098..., hoặc gõ từ khoá tự do..." />
+    </div>
+
+  </div>
+
+ <div id="map"></div>
+
+<!-- Nút nổi cạnh nhau: 📍 định vị & 🚀 tới KH gần nhất -->
+<div id="mapToolbar" class="toolbar">
+  <!-- <button id="reload" title="Tải lại dữ liệu 🔄">🔄</button>--->
+  <button id="btnMyLocation" title="Định vị 📍">📍</button>
+  <button id="btnNearest" title="Tới KH gần nhất 🚀">🚀</button>
+  <!-- (đã bỏ) <button id="btnFollow" title="Theo dõi 👁️">👁️</button> -->
+</div>
+
+
+
+
+</body>
+</html>

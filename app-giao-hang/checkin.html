@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#111" />
+<title>Check-in giao thành công</title>
+
+<!-- Liên kết CSS & JS -->
+<link rel="stylesheet" href="./css/checkin.css" />
+<script defer src="./js/checkin.js"></script>
+</head>
+<body>
+  <div class="stage">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas" style="display:none"></canvas>
+  </div>
+
+  <!-- Ẩn khung thông tin -->
+  <div class="tag" id="infoTag" style="display:none"></div>
+
+ <div class="bar">
+  <button id="btnStart" class="btn btn-blue">Bật cam</button>
+  <button id="btnShot"  class="btn btn-green" disabled>📸 Chụp & Gửi</button>
+  <button id="btnSound" class="btn btn-gray" title="Bật/Tắt tiếng">🔊</button>
+
+  <!-- Zoom controls -->
+  <button id="btnZoomOut" class="btn" title="Thu nhỏ">−</button>
+  <span id="zoomInfo" class="txt" aria-live="polite">1.0×</span>
+  <button id="btnZoomIn"  class="btn" title="Phóng to">+</button>
+</div>
+
+
+  <!-- Bottom sheet hỏi kèm vị trí -->
+  <div id="sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <h3 id="sheetTitle">Gửi kèm vị trí?</h3>
+    <p>Bạn có muốn đính kèm toạ độ GPS (nếu cấp quyền) khi gửi ảnh xác nhận giao hàng thành công?</p>
+    <div class="row">
+      <button id="btnSendWithGPS" class="btn btn-green">Gửi kèm vị trí</button>
+      <button id="btnSendNoGPS" class="btn btn-gray">Chỉ gửi ảnh</button>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <iframe id="sink" name="sink" style="display:none"></iframe>
+  <audio id="snapSound" src="https://cdn.jsdelivr.net/gh/naptha/tesseract.js@master/examples/browser/sound/snap.wav" preload="auto"></audio>
+</body>
+</html>

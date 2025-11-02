@@ -1,0 +1,162 @@
+/* ===================== checkin.css (FINAL) =====================
+ * - Camera đúng tỉ lệ gốc (object-fit: contain), mặc định 0.5x
+ * - Ẩn/vô hiệu hóa cụm + / – / 2.1x
+ * - Bottom sheet & Toast & Bar giữ nguyên
+ * =============================================================== */
+
+/* ---------- Biến & reset cơ bản ---------- */
+:root{
+  --bar-h: 76px;
+  --c-bg: #000;
+  --c-panel: #111;
+  --c-text: #fff;
+  --c-muted: rgba(255,255,255,.08);
+  --r-12: 12px; --r-16: 16px;
+}
+
+*{ box-sizing: border-box; }
+html,body{
+  height:100%; margin:0;
+  background:var(--c-bg); color:var(--c-text);
+  font-family:system-ui, Segoe UI, Roboto, Arial, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------- Sân khấu camera ---------- */
+.stage{
+  position:fixed; inset:0 0 var(--bar-h) 0;
+  display:flex; align-items:center; justify-content:center;
+  background:#000;
+  height:calc(100vh - var(--bar-h));
+}
+@supports (height: 100dvh){
+  .stage{ height:calc(100dvh - var(--bar-h)); }
+}
+
+/* Preview: đúng tỉ lệ gốc, không bị fill quá khung
+   MẶC ĐỊNH THU NHỎ 0.5x (zoom out) */
+video, canvas{
+  max-width:100%;
+  max-height:100%;
+  width:auto !important;
+  height:auto !important;
+  object-fit:contain !important;
+  background:#000;
+  transform-origin:center center !important;
+  transform:scale(0.5) !important;     /* ✅ mặc định 0.5x */
+  touch-action: pan-x pan-y !important; /* hạn chế pinch-zoom trên phần tử */
+}
+
+/* Thứ tự lớp: video < sheet < bar < toast */
+.stage, video, canvas{ z-index:1; }
+
+/* ---------- Thanh điều khiển dưới ---------- */
+.bar{
+  position:fixed; left:0; right:0; bottom:0; height:var(--bar-h);
+  background:var(--c-panel);
+  border-top:1px solid var(--c-muted);
+  display:flex; gap:10px; align-items:center; justify-content:center;
+  padding:10px calc(12px + env(safe-area-inset-right))
+           calc(10px + env(safe-area-inset-bottom))
+           calc(12px + env(safe-area-inset-left));
+  z-index:99; /* luôn trên sheet */
+  backdrop-filter: saturate(120%) blur(2px);
+}
+
+/* ---------- Nút bấm ---------- */
+.btn{
+  appearance:none; -webkit-appearance:none;
+  border:0; outline:0; cursor:pointer; white-space:nowrap;
+  padding:12px 16px; border-radius:var(--r-12);
+  font-weight:700; font-size:16px;
+  background:#2d2d2d; color:#fff;
+  transition: filter .18s ease, transform .04s ease;
+  min-height:44px; min-width:44px; /* hit-area lớn */
+}
+.btn:active{ transform: translateY(1px); }
+.btn:focus-visible{ outline:2px solid rgba(255,255,255,.28); outline-offset:2px; }
+
+.btn-blue { background:#2563eb; }
+.btn-green{ background:#10b981; }
+.btn-gray { background:#374151; }
+.btn-on   { background:#10b981 !important; color:#fff !important; }
+
+.btn[disabled], .btn:disabled{
+  opacity:.5; filter:grayscale(20%); cursor:not-allowed;
+}
+
+/* Màn hẹp: bớt chật chội */
+@media (max-width: 380px){
+  .bar{ gap:8px; }
+  .bar .btn{ padding:10px 12px; font-size:15px; }
+}
+
+/* ---------- Tag thông tin nhỏ góc trái (ẩn mặc định) ---------- */
+.tag{
+  display:none;
+  position:fixed; left:10px; top:10px; z-index:40;
+  background:#0b1220cc; color:#cfe3ff;
+  border:1px solid #1e3a8a; border-radius:10px;
+  padding:8px 10px; font-size:13px; line-height:1.35;
+}
+.tag b{ color:#fff; }
+
+/* ---------- Bottom Sheet hỏi gửi vị trí ---------- */
+.sheet{
+  position:fixed; left:0; right:0; bottom:0;
+  transform:translateY(110%); opacity:0;
+  background:#0b1220; color:#e6edff;
+  border-top:1px solid var(--c-muted);
+  border-radius:16px 16px 0 0;
+  padding:16px 14px calc(18px + env(safe-area-inset-bottom) + var(--bar-h)); /* chừa bar */
+  box-shadow:0 -18px 40px rgba(0,0,0,.45);
+  transition: transform .28s ease, opacity .28s ease;
+  z-index:70; /* dưới bar */
+  pointer-events:none; /* tránh ăn click khi ẩn */
+}
+.sheet.on{ transform:translateY(0); opacity:1; pointer-events:auto; }
+.sheet h3{ margin:0 0 10px; font-size:16px; font-weight:800; }
+.sheet p { margin:0 0 12px; color:#9aa7c7; font-size:14px; }
+.sheet .row{ display:flex; gap:10px; }
+.sheet .btn{ flex:1; }
+
+/* ---------- Toast to giữa màn hình ---------- */
+#toast{
+  position:fixed;
+  left:50%; top:50%;
+  transform:translate(-50%,-50%) scale(.92);
+  min-width:min(92vw, 540px); max-width:92vw;
+  text-align:center;
+  font-weight:700;
+  font-size:clamp(18px, 2.6vw, 24px);
+  line-height:1.35;
+  color:#fff;
+  background:rgba(20,20,20,.92);
+  border:2px solid rgba(255,255,255,.12);
+  border-radius:16px;
+  box-shadow:0 12px 36px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.05) inset;
+  padding:18px 20px;
+  z-index:9999; /* top-most */
+  opacity:0;
+  pointer-events:none;
+  transition: opacity .18s ease, transform .18s ease;
+  backdrop-filter: blur(4px);
+}
+#toast.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+#toast.ok   { background:rgba(16,120,16,.92); border-color:rgba(255,255,255,.14); }
+#toast.err  { background:rgba(170,20,20,.94); border-color:rgba(255,255,255,.16); }
+#toast.info { background:rgba(20,20,20,.92); border-color:rgba(255,255,255,.12); }
+#toast .icon{ display:inline-block; font-size:1.2em; margin-right:8px; transform:translateY(1px); }
+
+/* ---------- Tiện ích nhỏ ---------- */
+.hidden{ display:none !important; }
+.center{ display:flex; align-items:center; justify-content:center; }
+
+/* ---------- Reduce motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .sheet, #toast { transition: none !important; }
+  .btn { transition: none !important; }
+}
+
+/* ---------- Vô hiệu hóa cụm zoom UI ---------- */
+#btnZoomIn, #btnZoomOut, #zoomInfo{ display:none !important; }
