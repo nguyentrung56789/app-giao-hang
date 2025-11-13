@@ -492,10 +492,10 @@ async function doSaveByMode(codeScanned){
 
       // ❗ ĐÃ CÓ NGÀY ĐÓNG HÀNG → xem như đã đóng, chỉ báo & dừng
       if (ngayDH) {
-        const timeVN = fmtDateVN(ngayDH);  // dd/mm/yyyy hh:mm
         renderStatus('Đã đóng hàng');
-        setInfo('ok', `Đơn này đã đóng hàng lúc ${timeVN}`);
-        showSlide(`ĐƠN NÀY ĐÃ ĐÓNG HÀNG LÚC ${timeVN}`, 'ok');
+        setInfo('ok', `Đơn này đã đóng hàng lúc ${ngayDH}`);
+        showSlide(`ĐƠN NÀY ĐÃ ĐÓNG HÀNG LÚC ${ngayDH}`, 'ok');
+
         vibrate([60,40,60]);
         markScanned(code);
         return;
