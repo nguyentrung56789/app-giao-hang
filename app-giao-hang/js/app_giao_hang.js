@@ -265,7 +265,6 @@ async function ensureCamera(){ if(currentStream) return currentStream;
 async function startReader(stream){
   if(!video) return;
   video.srcObject=stream;video.setAttribute('playsinline','');video.muted=true;
-
   try{await video.play();}catch{}
   const t=stream.getVideoTracks();const s=t[0]?.getSettings?.()||{};currentDeviceId=s.deviceId||null;
   await reader.decodeFromVideoDevice(currentDeviceId||null,video,onScan);
@@ -463,16 +462,57 @@ async function doSaveByMode(codeScanned){
   }else{
     // === QUÉT MÃ VẬN ĐƠN
     const code = codeScanned || (mavd?.value || '').trim();
-    if (!code) { setInfo('err','Thiếu mã vận đơn'); showSlide('THIẾU MÃ VẬN ĐƠN','err'); return; }
-    if (isBlocked(code)) { setInfo('','Mã này vừa quét rồi — chờ 2 phút.'); showSlide('MÃ VỪA QUÉT — CHỜ 2 PHÚT','warn'); vibrate([60,40,60]); return; }
+    if (!code) {
+      setInfo('err','Thiếu mã vận đơn');
+      showSlide('THIẾU MÃ VẬN ĐƠN','err');
+      return;
+    }
+    if (isBlocked(code)) {
+      setInfo('','Mã này vừa quét rồi — chờ 2 phút.');
+      showSlide('MÃ VỪA QUÉT — CHỜ 2 PHÚT','warn');
+      vibrate([60,40,60]);
+      return;
+    }
 
     try {
-      const vdRow = await sbSelect(TABLE_VD_KIOT,{ [KEY_VD]: `eq.${code}`, limit: 1 },`${KEY_VD},${KEY_DON_HD}`);
-      if (!vdRow.length) { setInfo('err','Không tìm thấy vận đơn'); showSlide('KHÔNG TÌM THẤY VẬN ĐƠN','err'); vibrate([60,40,60]); return; }
-      const ma_hd = vdRow[0][KEY_DON_HD];
+      // LẤY THÊM ngay_dong_hang TỪ BẢNG VẬN ĐƠN
+      const vdRow = await sbSelect(
+        TABLE_VD_KIOT,
+        { [KEY_VD]: `eq.${code}`, limit: 1 },
+        `${KEY_VD},${KEY_DON_HD},ngay_dong_hang`
+      );
+      if (!vdRow.length) {
+        setInfo('err','Không tìm thấy vận đơn');
+        showSlide('KHÔNG TÌM THẤY VẬN ĐƠN','err');
+        vibrate([60,40,60]);
+        return;
+      }
+      const ma_hd  = vdRow[0][KEY_DON_HD];
+      const ngayDH = vdRow[0].ngay_dong_hang;
 
-      const existed = await sbSelect(TABLE_DON,{ [KEY_DON_HD]: `eq.${ma_hd}`, limit: 1 },`${KEY_DON_HD},trang_thai`);
-      if (!existed.length) { setInfo('err','Không tìm thấy hóa đơn'); showSlide('KHÔNG TÌM THẤY HÓA ĐƠN','err'); vibrate([60,40,60]); return; }
+      // ❗ ĐÃ CÓ NGÀY ĐÓNG HÀNG → xem như đã đóng, chỉ báo & dừng
+      if (ngayDH) {
+        const timeVN = fmtDateVN(ngayDH);  // dd/mm/yyyy hh:mm
+        renderStatus('Đã đóng hàng');
+        setInfo('ok', `Đơn này đã đóng hàng lúc ${timeVN}`);
+        showSlide(`ĐƠN NÀY ĐÃ ĐÓNG HÀNG LÚC ${timeVN}`, 'ok');
+        vibrate([60,40,60]);
+        markScanned(code);
+        return;
+      }
+
+      // Chưa có ngay_dong_hang → xử lý bình thường theo trạng thái đơn
+      const existed = await sbSelect(
+        TABLE_DON,
+        { [KEY_DON_HD]: `eq.${ma_hd}`, limit: 1 },
+        `${KEY_DON_HD},trang_thai`
+      );
+      if (!existed.length) {
+        setInfo('err','Không tìm thấy hóa đơn');
+        showSlide('KHÔNG TÌM THẤY HÓA ĐƠN','err');
+        vibrate([60,40,60]);
+        return;
+      }
 
       const cur = (existed[0]?.trang_thai || '').trim();
 
@@ -487,45 +527,46 @@ async function doSaveByMode(codeScanned){
 
       // Ràng buộc đóng hàng
       if (cur === 'Chưa kiểm đơn') {
-        setInfo('err','Chưa kiểm đơn — không thể đóng hàng'); showSlide('LỖI: CHƯA KIỂM ĐƠN','err'); vibrate([80,60,80]); markScanned(code); return;
+        setInfo('err','Chưa kiểm đơn — không thể đóng hàng');
+        showSlide('LỖI: CHƯA KIỂM ĐƠN','err');
+        vibrate([80,60,80]);
+        markScanned(code);
+        return;
       }
       if (cur !== 'Đã kiểm đơn' && cur !== 'Đã đóng hàng') {
-        setInfo('err','Trạng thái hiện tại không hợp lệ để Đóng hàng'); showSlide('KHÔNG HỢP LỆ: CẦN "ĐÃ KIỂM ĐƠN" TRƯỚC','err'); vibrate([80,60,80]); markScanned(code); return;
-      }
-
-      if (cur === 'Đã đóng hàng') {
-        renderStatus('Đã đóng hàng'); setInfo('ok','✔ Đã đóng hàng (trước đó)'); showSlide('ĐÃ ĐÓNG HÀNG (TRƯỚC ĐÓ)','ok');
-        vibrate([60,40,60]); markScanned(code);
+        setInfo('err','Trạng thái hiện tại không hợp lệ để Đóng hàng');
+        showSlide('KHÔNG HỢP LỆ: CẦN "ĐÃ KIỂM ĐƠN" TRƯỚC','err');
+        vibrate([80,60,80]);
+        markScanned(code);
         return;
       }
 
-      // cur === 'Đã kiểm đơn' → nâng lên “Đã đóng hàng”
-      const nv  = (function(){try{return JSON.parse(localStorage.getItem('nv'))?.ma_nv||null}catch{return null}})();
+      // cur === 'Đã kiểm đơn' (hoặc dữ liệu cũ 'Đã đóng hàng' nhưng chưa có ngay_dong_hang) → nâng lên / set lại “Đã đóng hàng”
+      const nv  = (function(){
+        try { return JSON.parse(localStorage.getItem('nv'))?.ma_nv || null; }
+        catch { return null; }
+      })();
       const nowText = nowVN_ddmmyyyy_hhmm();
+
       await sbPatch(TABLE_DON,{ [KEY_DON_HD]: `eq.${ma_hd}` },{
         trang_thai: 'Đã đóng hàng',
         ngay_dong_hang: nowText, nv_dong_hang: nv,
         ngay_check_don: nowText, nv_check_don: nv
       });
-
-      // === ADD: cập nhật thêm don_hang theo ma_vd (3 field) ===
-      await sbPatch(TABLE_DON, { [KEY_VD]: `eq.${code}` }, {
-        trang_thai: 'Đã đóng hàng',
-        ngay_dong_hang: nowText,
-        nv_dong_hang: nv
-      });
-      // === END ADD ===
-
-
       await sbPatch(TABLE_VD_KIOT,{ [KEY_VD]: `eq.${code}` },{ ngay_dong_hang: nowText });
-      renderStatus('Đã đóng hàng'); setInfo('ok','✔ Đã đóng hàng'); showSlide('ĐÃ ĐÓNG HÀNG','ok');
-      vibrate([80,60,80]); markScanned(code);
+
+      renderStatus('Đã đóng hàng');
+      setInfo('ok','✔ Đã đóng hàng');
+      showSlide('ĐÃ ĐÓNG HÀNG','ok');
+      vibrate([80,60,80]);
+      markScanned(code);
     } catch (e) {
       setInfo('err','Lỗi cập nhật trạng thái: ' + (e.message || e));
       showSlide('LỖI CẬP NHẬT TRẠNG THÁI','err');
     }
   }
 }
+
 
 /* ===== onScan ===== */
 async function onScan(res){
