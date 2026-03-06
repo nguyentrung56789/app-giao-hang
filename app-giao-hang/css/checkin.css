@@ -43,8 +43,8 @@ video, canvas{
   object-fit:contain !important;
   background:#000;
   transform-origin:center center !important;
-  transform:scale(0.5) !important;     /* ✅ mặc định 0.5x */
-  touch-action: pan-x pan-y !important; /* hạn chế pinch-zoom trên phần tử */
+  transform:none !important;
+  touch-action: pan-x pan-y !important;
 }
 
 /* Thứ tự lớp: video < sheet < bar < toast */
