@@ -36,15 +36,11 @@ html,body{
 /* Preview: đúng tỉ lệ gốc, không bị fill quá khung
    MẶC ĐỊNH THU NHỎ 0.5x (zoom out) */
 video, canvas{
-  max-width:100%;
-  max-height:100%;
-  width:auto !important;
-  height:auto !important;
-  object-fit:contain !important;
+  width:100% !important;
+  height:100% !important;
+  object-fit:cover !important;
   background:#000;
-  transform-origin:center center !important;
   transform:none !important;
-  touch-action: pan-x pan-y !important;
 }
 
 /* Thứ tự lớp: video < sheet < bar < toast */
