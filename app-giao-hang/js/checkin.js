@@ -146,7 +146,15 @@ async function playShutter(){
 async function startCam(){
   try{
     if(stream) stream.getTracks().forEach(t=>t.stop());
-    const base = { video:{ width:{ideal:1080}, height:{ideal:1920}, facingMode:{ideal:"environment"} }, audio:false };
+    const base = { 
+  video:{ 
+    facingMode:{ideal:"environment"},
+    width:{ideal:1920},
+    height:{ideal:1080},
+    aspectRatio: { ideal: 9/16 }
+  },
+  audio:false
+};
     try{
       stream = await navigator.mediaDevices.getUserMedia(base);
     }catch(e){
